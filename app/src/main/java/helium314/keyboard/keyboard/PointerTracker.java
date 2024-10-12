@@ -25,6 +25,7 @@ import helium314.keyboard.keyboard.internal.GestureEnabler;
 import helium314.keyboard.keyboard.internal.GestureStrokeDrawingParams;
 import helium314.keyboard.keyboard.internal.GestureStrokeDrawingPoints;
 import helium314.keyboard.keyboard.internal.GestureStrokeRecognitionParams;
+import helium314.keyboard.keyboard.internal.Modifier;
 import helium314.keyboard.keyboard.internal.PointerTrackerQueue;
 import helium314.keyboard.keyboard.internal.TimerProxy;
 import helium314.keyboard.keyboard.internal.TypingTimeRecorder;
@@ -39,6 +40,7 @@ import helium314.keyboard.latin.settings.SettingsValues;
 import helium314.keyboard.latin.utils.Log;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.WeakHashMap;
 
@@ -297,7 +299,7 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         return false;
     }
 
-    // Note that we need primaryCode argument because the keyboard may in shifted state and the
+    // Note that we need primaryCode argument because the keyboard may in modifierKey state and the
     // primaryCode is different from {@link Key#mKeyCode}.
     private void callListenerOnCodeInput(final Key key, final int primaryCode, final int x,
             final int y, final long eventTime, final boolean isKeyRepeat) {
@@ -418,10 +420,13 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
 
         sDrawingProxy.onKeyReleased(key, withAnimation);
 
-        if (key.isShift()) {
-            for (final Key shiftKey : mKeyboard.mShiftKeys) {
-                if (shiftKey != key) {
-                    sDrawingProxy.onKeyReleased(shiftKey, false);
+        if (key.isNonLayoutModifier()) {
+            List<Key> currentModifierKeys = mKeyboard.mModifierKeys.get(Modifier.byKeyCode.get(key.getCode()));
+            if (currentModifierKeys != null) {
+                for (final Key modifierKey : currentModifierKeys) {
+                    if (modifierKey != key) {
+                        sDrawingProxy.onKeyReleased(modifierKey, false);
+                    }
                 }
             }
         }
@@ -460,10 +465,13 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
         final boolean noKeyPreview = sInGesture || needsToSuppressKeyPreviewPopup(eventTime);
         sDrawingProxy.onKeyPressed(key, !noKeyPreview);
 
-        if (key.isShift()) {
-            for (final Key shiftKey : mKeyboard.mShiftKeys) {
-                if (shiftKey != key) {
-                    sDrawingProxy.onKeyPressed(shiftKey, false);
+        if (key.isNonLayoutModifier()) {
+            List<Key> currentModifierKeys = mKeyboard.mModifierKeys.get(Modifier.byKeyCode.get(key.getCode()));
+            if (currentModifierKeys != null) {
+                for (final Key modifierKey : currentModifierKeys) {
+                    if (modifierKey != key) {
+                        sDrawingProxy.onKeyPressed(modifierKey, false);
+                    }
                 }
             }
         }
@@ -1231,7 +1239,9 @@ public final class PointerTracker implements PointerTrackerQueue.Element,
     private void startLongPressTimer(final Key key) {
         // Note that we need to cancel all active long press shift key timers if any whenever we
         // start a new long press timer for both non-shift and shift keys.
-        sTimerProxy.cancelLongPressShiftKeyTimer();
+        for (Modifier modifier: Modifier.list) {
+            sTimerProxy.cancelLongPressModifierKeyTimer(modifier);
+        }
         if (sInGesture) return;
         if (key == null) return;
         if (!key.isLongPressEnabled()) return;

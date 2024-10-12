@@ -28,6 +28,14 @@ public final class TimerHandler extends LeakGuardHandlerWrapper<DrawingProxy>
     private static final int MSG_UPDATE_BATCH_INPUT = 5;
     private static final int MSG_DISMISS_KEY_PREVIEW = 6;
     private static final int MSG_DISMISS_GESTURE_FLOATING_PREVIEW_TEXT = 7;
+    private static final int MSG_LONGPRESS_CTRL_KEY = 8;
+    private static final int MSG_DOUBLE_TAP_CTRL_KEY = 9;
+    private static final int MSG_LONGPRESS_ALT_KEY = 10;
+    private static final int MSG_DOUBLE_TAP_ALT_KEY = 11;
+    private static final int MSG_LONGPRESS_META_KEY = 12;
+    private static final int MSG_DOUBLE_TAP_META_KEY = 13;
+    private static final int MSG_LONGPRESS_FN_KEY = 14;
+    private static final int MSG_DOUBLE_TAP_FN_KEY = 15;
 
     private final int mIgnoreAltCodeKeyTimeout;
     private final int mGestureRecognitionUpdateTime;
@@ -55,6 +63,10 @@ public final class TimerHandler extends LeakGuardHandlerWrapper<DrawingProxy>
             break;
         case MSG_LONGPRESS_KEY:
         case MSG_LONGPRESS_SHIFT_KEY:
+        case MSG_LONGPRESS_CTRL_KEY:
+        case MSG_LONGPRESS_ALT_KEY:
+        case MSG_LONGPRESS_META_KEY:
+        case MSG_LONGPRESS_FN_KEY:
             cancelLongPressTimers();
             final PointerTracker tracker2 = (PointerTracker) msg.obj;
             tracker2.onLongPressed();
@@ -97,6 +109,52 @@ public final class TimerHandler extends LeakGuardHandlerWrapper<DrawingProxy>
         return hasMessages(MSG_REPEAT_KEY);
     }
 
+    /**
+     * @param modifier modifier enum instance or null
+     * @return longpress message id if defined for the given modifier or MSG_LONGPRESS_KEY when not defined of modifier is null
+     */
+    private int modifierLongpressMessageId(Modifier modifier) {
+        if (modifier == null) {
+            return MSG_LONGPRESS_KEY;
+        }
+        switch (modifier) {
+            case SHIFT:
+                return MSG_LONGPRESS_SHIFT_KEY;
+            case CTRL:
+                return MSG_LONGPRESS_CTRL_KEY;
+            case ALT:
+                return MSG_LONGPRESS_ALT_KEY;
+            case META:
+                return MSG_LONGPRESS_META_KEY;
+            case FN:
+                return MSG_LONGPRESS_FN_KEY;
+        }
+        return MSG_LONGPRESS_KEY;
+    }
+
+    /**
+     * @param modifier modifier enum instance or null
+     * @return double tap message id if defined for the given modifier or -1 when not defined of modifier is null
+     */
+    private int modifierDoubleTapMessageId(Modifier modifier) {
+        if (modifier == null) {
+            return -1;
+        }
+        switch (modifier) {
+            case SHIFT:
+                return MSG_DOUBLE_TAP_SHIFT_KEY;
+            case CTRL:
+                return MSG_DOUBLE_TAP_CTRL_KEY;
+            case ALT:
+                return MSG_DOUBLE_TAP_ALT_KEY;
+            case META:
+                return MSG_DOUBLE_TAP_META_KEY;
+            case FN:
+                return MSG_DOUBLE_TAP_FN_KEY;
+        }
+        return -1;
+    }
+
     @Override
     public void startLongPressTimerOf(@NonNull final PointerTracker tracker, final int delay) {
         final Key key = tracker.getKey();
@@ -105,25 +163,28 @@ public final class TimerHandler extends LeakGuardHandlerWrapper<DrawingProxy>
         }
         // Use a separate message id for long pressing shift key, because long press shift key
         // timers should be canceled when other key is pressed.
-        final int messageId = (key.getCode() == KeyCode.SHIFT)
-                ? MSG_LONGPRESS_SHIFT_KEY : MSG_LONGPRESS_KEY;
+        final int messageId = modifierLongpressMessageId(Modifier.byKeyCode.get(key.getCode()));
         sendMessageDelayed(obtainMessage(messageId, tracker), delay);
     }
 
     @Override
     public void cancelLongPressTimersOf(@NonNull final PointerTracker tracker) {
         removeMessages(MSG_LONGPRESS_KEY, tracker);
-        removeMessages(MSG_LONGPRESS_SHIFT_KEY, tracker);
+        for (Modifier modifier: Modifier.list) {
+            removeMessages(modifierLongpressMessageId(modifier), tracker);
+        }
     }
 
     @Override
-    public void cancelLongPressShiftKeyTimer() {
-        removeMessages(MSG_LONGPRESS_SHIFT_KEY);
+    public void cancelLongPressModifierKeyTimer(@NonNull Modifier modifier) {
+        removeMessages(modifierLongpressMessageId(modifier));
     }
 
     public void cancelLongPressTimers() {
         removeMessages(MSG_LONGPRESS_KEY);
-        removeMessages(MSG_LONGPRESS_SHIFT_KEY);
+        for (Modifier modifier: Modifier.list) {
+            removeMessages(modifierLongpressMessageId(modifier));
+        }
     }
 
     @Override
@@ -162,19 +223,31 @@ public final class TimerHandler extends LeakGuardHandlerWrapper<DrawingProxy>
     }
 
     @Override
-    public void startDoubleTapShiftKeyTimer() {
-        sendMessageDelayed(obtainMessage(MSG_DOUBLE_TAP_SHIFT_KEY),
+    public void startDoubleTapModifierKeyTimer(@NonNull Modifier modifier) {
+        int messageId = modifierDoubleTapMessageId(modifier);
+        if (messageId < 0) {
+            return;
+        }
+        sendMessageDelayed(obtainMessage(messageId),
                 ViewConfiguration.getDoubleTapTimeout());
     }
 
     @Override
-    public void cancelDoubleTapShiftKeyTimer() {
-        removeMessages(MSG_DOUBLE_TAP_SHIFT_KEY);
+    public void cancelDoubleTapModifierKeyTimer(@NonNull Modifier modifier) {
+        int messageId = modifierDoubleTapMessageId(modifier);
+        if (messageId < 0) {
+            return;
+        }
+        removeMessages(messageId);
     }
 
     @Override
-    public boolean isInDoubleTapShiftKeyTimeout() {
-        return hasMessages(MSG_DOUBLE_TAP_SHIFT_KEY);
+    public boolean isInDoubleTapModifierKeyTimeout(@NonNull Modifier modifier) {
+        int messageId = modifierDoubleTapMessageId(modifier);
+        if (messageId < 0) {
+            return false;
+        }
+        return hasMessages(messageId);
     }
 
     @Override

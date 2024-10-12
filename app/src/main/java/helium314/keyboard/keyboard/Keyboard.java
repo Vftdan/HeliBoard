@@ -16,6 +16,7 @@ import com.android.inputmethod.keyboard.ProximityInfo;
 import helium314.keyboard.keyboard.internal.KeyVisualAttributes;
 import helium314.keyboard.keyboard.internal.KeyboardIconsSet;
 import helium314.keyboard.keyboard.internal.KeyboardParams;
+import helium314.keyboard.keyboard.internal.Modifier;
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode;
 import helium314.keyboard.latin.common.Constants;
 import helium314.keyboard.latin.common.CoordinateUtils;
@@ -23,6 +24,7 @@ import helium314.keyboard.latin.common.CoordinateUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Loads an XML description of a keyboard and stores the attributes of the keys. A keyboard
@@ -78,7 +80,7 @@ public class Keyboard {
     @NonNull
     private final List<Key> mSortedKeys;
     @NonNull
-    public final List<Key> mShiftKeys;
+    public final Map<Modifier, List<Key>> mModifierKeys;
     @NonNull
     public final List<Key> mAltCodeKeysWhileTyping;
     @NonNull
@@ -109,7 +111,10 @@ public class Keyboard {
         mVerticalGap = params.mVerticalGap;
 
         mSortedKeys = Collections.unmodifiableList(new ArrayList<>(params.mSortedKeys));
-        mShiftKeys = Collections.unmodifiableList(params.mShiftKeys);
+        // TODO make less ugly
+        mModifierKeys = Collections.unmodifiableMap(Map.ofEntries((new ArrayList<>() {{
+            params.mModifierKeys.forEach((k, v) -> add(Map.entry(k, Collections.unmodifiableList(v))));
+        }}).toArray(new Map.Entry[0])));
         mAltCodeKeysWhileTyping = Collections.unmodifiableList(params.mAltCodeKeysWhileTyping);
         mIconsSet = params.mIconsSet;
 
@@ -137,7 +142,7 @@ public class Keyboard {
         mVerticalGap = keyboard.mVerticalGap;
 
         mSortedKeys = keyboard.mSortedKeys;
-        mShiftKeys = keyboard.mShiftKeys;
+        mModifierKeys = keyboard.mModifierKeys;
         mAltCodeKeysWhileTyping = keyboard.mAltCodeKeysWhileTyping;
         mIconsSet = keyboard.mIconsSet;
 

@@ -1,6 +1,7 @@
 package helium314.keyboard.keyboard
 
 import android.view.KeyEvent
+import helium314.keyboard.keyboard.internal.Modifier
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode
 import helium314.keyboard.latin.LatinIME
 import helium314.keyboard.latin.RichInputMethodManager
@@ -33,13 +34,11 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
     }
 
     override fun onPressKey(primaryCode: Int, repeatCount: Int, isSinglePointer: Boolean) {
-        adjustMetaState(primaryCode, false)
         keyboardSwitcher.onPressKey(primaryCode, isSinglePointer, latinIME.currentAutoCapsState, latinIME.currentRecapitalizeState)
         latinIME.hapticAndAudioFeedback(primaryCode, repeatCount)
     }
 
     override fun onReleaseKey(primaryCode: Int, withSliding: Boolean) {
-        adjustMetaState(primaryCode, true)
         keyboardSwitcher.onReleaseKey(primaryCode, withSliding, latinIME.currentAutoCapsState, latinIME.currentRecapitalizeState)
     }
 
@@ -119,6 +118,12 @@ class KeyboardActionListenerImpl(private val latinIME: LatinIME, private val inp
 
     override fun resetMetaState() {
         metaState = 0
+    }
+
+    override fun updateMetaState(modifier: Modifier?, enabled: Boolean): Unit {
+        if (modifier != null) {
+            adjustMetaState(modifier.keyCode, !enabled)
+        }
     }
 
     private fun onLanguageSlide(steps: Int): Boolean {

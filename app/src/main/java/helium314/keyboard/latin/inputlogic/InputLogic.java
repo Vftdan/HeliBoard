@@ -773,7 +773,8 @@ public final class InputLogic {
                 // input logic has no business with IME switching.
             case KeyCode.CAPS_LOCK,  KeyCode.SYMBOL_ALPHA,  KeyCode.ALPHA, KeyCode.SYMBOL, KeyCode.NUMPAD, KeyCode.EMOJI,
                     KeyCode.START_ONE_HANDED_MODE, KeyCode.STOP_ONE_HANDED_MODE, KeyCode.SWITCH_ONE_HANDED_MODE,
-                    KeyCode.CTRL, KeyCode.ALT, KeyCode.FN, KeyCode.META:
+                    KeyCode.CTRL, KeyCode.ALT, KeyCode.FN, KeyCode.META,
+                    KeyCode.CTRL_LOCK, KeyCode.ALT_LOCK, KeyCode.FN_LOCK, KeyCode.META_LOCK:
                 break;
             default:
                 if (event.getMMetaState() != 0) {

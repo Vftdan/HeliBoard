@@ -38,6 +38,7 @@ import helium314.keyboard.keyboard.internal.KeyDrawParams;
 import helium314.keyboard.keyboard.internal.KeyPreviewChoreographer;
 import helium314.keyboard.keyboard.internal.KeyPreviewDrawParams;
 import helium314.keyboard.keyboard.internal.KeyPreviewView;
+import helium314.keyboard.keyboard.internal.Modifier;
 import helium314.keyboard.keyboard.internal.PopupKeySpec;
 import helium314.keyboard.keyboard.internal.NonDistinctMultitouchHelper;
 import helium314.keyboard.keyboard.internal.SlidingKeyInputDrawingPreview;
@@ -567,16 +568,16 @@ public final class MainKeyboardView extends KeyboardView implements DrawingProxy
         }
     }
 
-    public void startDoubleTapShiftKeyTimer() {
-        mTimerHandler.startDoubleTapShiftKeyTimer();
+    public void startDoubleTapModifierKeyTimer(Modifier modifier) {
+        mTimerHandler.startDoubleTapModifierKeyTimer(modifier);
     }
 
-    public void cancelDoubleTapShiftKeyTimer() {
-        mTimerHandler.cancelDoubleTapShiftKeyTimer();
+    public void cancelDoubleTapModifierKeyTimer(Modifier modifier) {
+        mTimerHandler.cancelDoubleTapModifierKeyTimer(modifier);
     }
 
-    public boolean isInDoubleTapShiftKeyTimeout() {
-        return mTimerHandler.isInDoubleTapShiftKeyTimeout();
+    public boolean isInDoubleTapModifierKeyTimeout(Modifier modifier) {
+        return mTimerHandler.isInDoubleTapModifierKeyTimeout(modifier);
     }
 
     @Override

@@ -34,45 +34,49 @@ public interface TimerProxy {
 
     /**
      * Start a timer to detect a long pressed key.
-     * If a key pointed by <code>tracker</code> is a shift key, start another timer to detect
-     * long pressed shift key.
+     * If a key pointed by <code>tracker</code> is a modifier key, start another timer to detect
+     * long pressed corresponding modifier key.
      * @param tracker the {@link PointerTracker} that starts long pressing.
      * @param delay the delay to fire the long press timer, in millisecond.
      */
     void startLongPressTimerOf(@NonNull PointerTracker tracker, int delay);
 
     /**
-     * Cancel timers for detecting a long pressed key and a long press shift key.
+     * Cancel timers for detecting a long pressed key and a long press modifier key.
      * @param tracker cancel long press timers of this {@link PointerTracker}.
      */
     void cancelLongPressTimersOf(@NonNull PointerTracker tracker);
 
     /**
-     * Cancel a timer for detecting a long pressed shift key.
+     * Cancel a timer for detecting a long pressed modifier key.
+     * @param modifier cancel long press timer for this modifier type
      */
-    void cancelLongPressShiftKeyTimer();
+    void cancelLongPressModifierKeyTimer(@NonNull Modifier modifier);
 
     /**
-     * Cancel timers for detecting repeated key press, long pressed key, and long pressed shift key.
+     * Cancel timers for detecting repeated key press, long pressed key, and long pressed modifier key.
      * @param tracker the {@link PointerTracker} that starts timers to be canceled.
      */
     void cancelKeyTimersOf(@NonNull PointerTracker tracker);
 
     /**
-     * Start a timer to detect double tapped shift key.
+     * Start a timer to detect double tapped modifier key.
+     * @param modifier start double tap timer for this modifier type
      */
-    void startDoubleTapShiftKeyTimer();
+    void startDoubleTapModifierKeyTimer(@NonNull Modifier modifier);
 
     /**
-     * Cancel a timer of detecting double tapped shift key.
+     * Cancel a timer of detecting double tapped modifier key.
+     * @param modifier cancel double tap timer for this modifier type
      */
-    void cancelDoubleTapShiftKeyTimer();
+    void cancelDoubleTapModifierKeyTimer(@NonNull Modifier modifier);
 
     /**
-     * Check if a timer of detecting double tapped shift key is running.
-     * @return true if detecting double tapped shift key is on going.
+     * Check if a timer of detecting double tapped modifier key is running.
+     * @param modifier modifier to check
+     * @return true if detecting double tapped modifier key is on going.
      */
-    boolean isInDoubleTapShiftKeyTimeout();
+    boolean isInDoubleTapModifierKeyTimeout(@NonNull Modifier modifier);
 
     /**
      * Start a timer to fire updating batch input while <code>tracker</code> is on hold.
@@ -104,15 +108,15 @@ public interface TimerProxy {
         @Override
         public void cancelLongPressTimersOf(@NonNull PointerTracker tracker) {}
         @Override
-        public void cancelLongPressShiftKeyTimer() {}
+        public void cancelLongPressModifierKeyTimer(@NonNull Modifier modifier) {}
         @Override
         public void cancelKeyTimersOf(@NonNull PointerTracker tracker) {}
         @Override
-        public void startDoubleTapShiftKeyTimer() {}
+        public void startDoubleTapModifierKeyTimer(@NonNull Modifier modifier) {}
         @Override
-        public void cancelDoubleTapShiftKeyTimer() {}
+        public void cancelDoubleTapModifierKeyTimer(@NonNull Modifier modifier) {}
         @Override
-        public boolean isInDoubleTapShiftKeyTimeout() { return false; }
+        public boolean isInDoubleTapModifierKeyTimeout(@NonNull Modifier modifier) { return false; }
         @Override
         public void startUpdateBatchInputTimer(@NonNull PointerTracker tracker) {}
         @Override

@@ -6,6 +6,7 @@
 
 package helium314.keyboard.keyboard;
 
+import helium314.keyboard.keyboard.internal.Modifier;
 import helium314.keyboard.latin.common.Constants;
 import helium314.keyboard.latin.common.InputPointers;
 
@@ -103,6 +104,13 @@ public interface KeyboardActionListener {
     void onUpWithDeletePointerActive();
     void resetMetaState();
 
+    /**
+     * Called when modifier latch state machine updates modifier bit that
+     * should be preserved for the application requesting keyboard
+     * input.
+     */
+    void updateMetaState(Modifier modifier, boolean enabled);
+
     KeyboardActionListener EMPTY_LISTENER = new Adapter();
 
     int SWIPE_NO_ACTION = 0;
@@ -153,5 +161,7 @@ public interface KeyboardActionListener {
         public void onUpWithDeletePointerActive() {}
         @Override
         public void resetMetaState() {}
+        @Override
+        public void updateMetaState(Modifier modifier, boolean enabled) {}
     }
 }

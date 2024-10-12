@@ -20,6 +20,8 @@ import helium314.keyboard.latin.settings.Settings;
 import helium314.keyboard.latin.utils.CapsModeUtils;
 import helium314.keyboard.latin.utils.RecapitalizeStatus;
 
+import java.util.Map;
+
 /**
  * Keyboard state machine.
  * <p>
@@ -59,9 +61,14 @@ public final class KeyboardState {
 
         boolean DEBUG_TIMER_ACTION = false;
 
-        void startDoubleTapShiftKeyTimer();
-        boolean isInDoubleTapShiftKeyTimeout();
-        void cancelDoubleTapShiftKeyTimer();
+        void startDoubleTapModifierKeyTimer(Modifier modifier);
+        boolean isInDoubleTapModifierKeyTimeout(Modifier modifier);
+        void cancelDoubleTapModifierKeyTimer(Modifier modifier);
+
+        /**
+         * Request KeyboardActionListener to update modifier bits
+         */
+        void updatePreservedModifierState(Modifier modifier, boolean enabled);
 
         void setOneHandedModeEnabled(boolean enabled);
         void switchOneHandedMode();
@@ -72,6 +79,30 @@ public final class KeyboardState {
     private final ShiftKeyState mShiftKeyState = new ShiftKeyState("Shift");
     private final ModifierKeyState mSymbolKeyState = new ModifierKeyState("Symbol");
     private final AlphabetShiftState mAlphabetShiftState = new AlphabetShiftState();
+
+    private final ModifierKeyState mCtrlKeyState = new ModifierKeyState("Ctrl");
+    private final ModifierKeyState mAltKeyState = new ModifierKeyState("Alt");
+    private final ModifierKeyState mMetaKeyState = new ModifierKeyState("Meta");
+    private final ModifierKeyState mFnKeyState = new ModifierKeyState("Fn");
+
+    private final ModifierState mCtrlModifierState = new ModifierState("Ctrl");
+    private final ModifierState mAltModifierState = new ModifierState("Alt");
+    private final ModifierState mMetaModifierState = new ModifierState("Meta");
+    private final ModifierState mFnModifierState = new ModifierState("Fn");
+
+    private final Map<Modifier, ModifierKeyState> mModifierKeyStates = Map.ofEntries(
+            Map.entry(Modifier.SHIFT, mShiftKeyState),
+            Map.entry(Modifier.CTRL, mCtrlKeyState),
+            Map.entry(Modifier.ALT, mAltKeyState),
+            Map.entry(Modifier.META, mMetaKeyState),
+            Map.entry(Modifier.FN, mFnKeyState)
+        );
+    private final Map<Modifier, ModifierState> mManualModifierStates = Map.ofEntries(
+            Map.entry(Modifier.CTRL, mCtrlModifierState),
+            Map.entry(Modifier.ALT, mAltModifierState),
+            Map.entry(Modifier.META, mMetaModifierState),
+            Map.entry(Modifier.FN, mFnModifierState)
+        );
 
     // TODO: Merge {@link #mSwitchState}, {@link #mIsAlphabetMode}, {@link #mAlphabetShiftState},
     // {@link #mIsSymbolShifted}, {@link #mPrevMainKeyboardWasShiftLocked}, and
@@ -100,16 +131,35 @@ public final class KeyboardState {
     private int mRecapitalizeMode;
 
     // For handling double tap.
-    private boolean mIsInAlphabetUnshiftedFromShifted;
-    private boolean mIsInDoubleTapShiftKey;
+    private ModifierDoubleTapProgress mShiftDoubleTapProgress = new ModifierDoubleTapProgress();
+    private ModifierDoubleTapProgress mCtrlDoubleTapProgress = new ModifierDoubleTapProgress();
+    private ModifierDoubleTapProgress mAltDoubleTapProgress = new ModifierDoubleTapProgress();
+    private ModifierDoubleTapProgress mMetaDoubleTapProgress = new ModifierDoubleTapProgress();
+    private ModifierDoubleTapProgress mFnDoubleTapProgress = new ModifierDoubleTapProgress();
+    private Map<Modifier, ModifierDoubleTapProgress> mModifierDoubleTapProgresses = Map.ofEntries(
+            Map.entry(Modifier.SHIFT, mShiftDoubleTapProgress),
+            Map.entry(Modifier.CTRL, mCtrlDoubleTapProgress),
+            Map.entry(Modifier.ALT, mAltDoubleTapProgress),
+            Map.entry(Modifier.META, mMetaDoubleTapProgress),
+            Map.entry(Modifier.FN, mFnDoubleTapProgress)
+        );
 
     private final SavedKeyboardState mSavedKeyboardState = new SavedKeyboardState();
+
+    static final class ModifierDoubleTapProgress {
+        public boolean mIsDisabledFromEnabled;
+        public boolean mIsInDoubleTap;
+    }
 
     static final class SavedKeyboardState {
         public boolean mIsValid;
         public boolean mIsAlphabetShiftLocked;
         public int mMode;
         public int mShiftMode;
+        public int mCtrlMode;
+        public int mAltMode;
+        public int mMetaMode;
+        public int mFnMode;
 
         @NonNull
         @Override
@@ -146,10 +196,17 @@ public final class KeyboardState {
         }
         // Reset alphabet shift state.
         mAlphabetShiftState.setShiftLocked(false);
+        mCtrlModifierState.setLocked(false);
+        mAltModifierState.setLocked(false);
+        mMetaModifierState.setLocked(false);
+        mFnModifierState.setLocked(false);
         mPrevMainKeyboardWasShiftLocked = false;
         mPrevSymbolsKeyboardWasShifted = false;
         mShiftKeyState.onRelease();
         mSymbolKeyState.onRelease();
+        mCtrlKeyState.onRelease();
+        mAltKeyState.onRelease();
+        mMetaKeyState.onRelease();
         if (mSavedKeyboardState.mIsValid) {
             onRestoreKeyboardState(autoCapsFlags, recapitalizeMode);
             mSavedKeyboardState.mIsValid = false;
@@ -177,6 +234,10 @@ public final class KeyboardState {
             state.mIsAlphabetShiftLocked = mPrevMainKeyboardWasShiftLocked;
             state.mShiftMode = mIsSymbolShifted ? MANUAL_SHIFT : UNSHIFT;
         }
+        state.mCtrlMode = mCtrlModifierState.getFlags();
+        state.mAltMode = mAltModifierState.getFlags();
+        state.mMetaMode = mMetaModifierState.getFlags();
+        state.mFnMode = mFnModifierState.getFlags();
         state.mIsValid = true;
         if (DEBUG_EVENT) {
             Log.d(TAG, "onSaveKeyboardState: saved=" + state + " " + this);
@@ -196,6 +257,7 @@ public final class KeyboardState {
             if (!state.mIsAlphabetShiftLocked) {
                 setShifted(state.mShiftMode);
             }
+            publishAllModifierStatesToSwitchActions();
             return;
         }
         if (state.mMode == MODE_EMOJI) {
@@ -209,6 +271,7 @@ public final class KeyboardState {
         if (state.mMode == MODE_NUMPAD) {
             // don't overwrite toggle state if reloading from orientation change, etc.
             setNumpadKeyboard(false, false, false);
+            publishAllModifierStatesToSwitchActions();
             return;
         }
         // Symbol mode
@@ -217,6 +280,7 @@ public final class KeyboardState {
         } else {
             setSymbolsKeyboard();
         }
+        publishAllModifierStatesToSwitchActions();
     }
 
     private void setShifted(final int shiftMode) {
@@ -271,6 +335,61 @@ public final class KeyboardState {
             mSwitchActions.setAlphabetKeyboard();
         }
         mAlphabetShiftState.setShiftLocked(shiftLocked);
+    }
+
+    private void publishModifierStateToSwitchActions(final Modifier modifier) {
+        if (modifier == null) {
+            return;
+        }
+        ModifierState modifierState = mManualModifierStates.get(modifier);
+        if (modifierState == null) {
+            return;
+        }
+        mSwitchActions.updatePreservedModifierState(modifier, modifierState.isEnabledOrLocked());
+    }
+
+    private void publishAllModifierStatesToSwitchActions() {
+        for (Modifier modifier : Modifier.list) {
+            publishModifierStateToSwitchActions(modifier);
+        }
+    }
+
+    private void setModifierLocked(final Modifier modifier, final boolean locked) {
+        if (DebugFlags.DEBUG_ENABLED) {
+            Log.d(TAG, "setModifierLocked: modifier=" + modifier + ", locked=" + locked + " " + this);
+        }
+        if (modifier == Modifier.SHIFT) {
+            setShiftLocked(locked);
+            return;
+        }
+        if (modifier == null) {
+            return;
+        }
+        ModifierState modifierState = mManualModifierStates.get(modifier);
+        if (modifierState == null) {
+            return;
+        }
+        modifierState.setLocked(locked);
+        publishModifierStateToSwitchActions(modifier);
+    }
+
+    private void toggleModifierLocked(final Modifier modifier) {
+        if (DebugFlags.DEBUG_ENABLED) {
+            Log.d(TAG, "toggleModifierLocked: modifier=" + modifier + " " + this);
+        }
+        if (modifier == Modifier.SHIFT) {
+            setShiftLocked(!mAlphabetShiftState.isShiftLocked());
+            return;
+        }
+        if (modifier == null) {
+            return;
+        }
+        ModifierState modifierState = mManualModifierStates.get(modifier);
+        if (modifierState == null) {
+            return;
+        }
+        modifierState.setLocked(!modifierState.isLocked());
+        publishModifierStateToSwitchActions(modifier);
     }
 
     private void toggleAlphabetAndSymbols(final int autoCapsFlags, final int recapitalizeMode) {
@@ -458,14 +577,18 @@ public final class KeyboardState {
                     + " single=" + isSinglePointer
                     + " " + stateToString(autoCapsFlags, recapitalizeMode));
         }
-        if (code != KeyCode.SHIFT) {
-            // Because the double tap shift key timer is to detect two consecutive shift key press,
-            // it should be canceled when a non-shift key is pressed.
-            mSwitchActions.cancelDoubleTapShiftKeyTimer();
+        for (Modifier modifier: Modifier.list) {
+            // Because the double tap modifier key timer is to detect two consecutive modifier key press,
+            // it should be canceled when a non-modifier or another modifier key is pressed.
+            if (modifier.keyCode == code) {
+                continue;
+            }
+            mSwitchActions.cancelDoubleTapModifierKeyTimer(modifier);
         }
-        if (code == KeyCode.SHIFT) {
-            onPressShift();
-        } else if (code == KeyCode.CAPS_LOCK) {
+        Modifier asModifier = Modifier.byKeyCode.get(code);
+        if (asModifier != null) {
+            onPressModifier(asModifier);
+        } else if (Modifier.byLockKeyCode.get(code) != null) {
             // Nothing to do here. See {@link #onReleaseKey(int,boolean)}.
         } else if (code == KeyCode.SYMBOL_ALPHA) {
             onPressAlphaSymbol(autoCapsFlags, recapitalizeMode);
@@ -479,7 +602,7 @@ public final class KeyboardState {
             // don't start sliding, causes issues with fully customizable layouts
             // (also does not allow chording, but can be fixed later)
         } else {
-            mShiftKeyState.onOtherKeyPressed();
+            mModifierKeyStates.values().forEach(ModifierKeyState::onOtherKeyPressed);
             mSymbolKeyState.onOtherKeyPressed();
             // It is required to reset the auto caps state when all of the following conditions
             // are met:
@@ -508,8 +631,8 @@ public final class KeyboardState {
                     + " " + stateToString(autoCapsFlags, recapitalizeMode));
         }
         switch (code) {
-        case KeyCode.SHIFT -> onReleaseShift(withSliding, autoCapsFlags, recapitalizeMode);
-        case KeyCode.CAPS_LOCK -> setShiftLocked(!mAlphabetShiftState.isShiftLocked());
+        case KeyCode.SHIFT, KeyCode.CTRL, KeyCode.ALT, KeyCode.META, KeyCode.FN -> onReleaseModifier(Modifier.byKeyCode.get(code), withSliding, autoCapsFlags, recapitalizeMode);
+        case KeyCode.CAPS_LOCK, KeyCode.CTRL_LOCK, KeyCode.ALT_LOCK, KeyCode.META_LOCK, KeyCode.FN_LOCK -> toggleModifierLocked(Modifier.byLockKeyCode.get(code));
         case KeyCode.SYMBOL_ALPHA -> onReleaseAlphaSymbol(withSliding, autoCapsFlags, recapitalizeMode);
         case KeyCode.SYMBOL -> onReleaseSymbol(withSliding, autoCapsFlags, recapitalizeMode);
         case KeyCode.ALPHA -> onReleaseAlpha(withSliding, autoCapsFlags, recapitalizeMode);
@@ -517,6 +640,10 @@ public final class KeyboardState {
             // if no sliding, toggling is instead handled by {@link #onEvent} to accommodate toolbar key.
             // also prevent sliding to clipboard layout, which isn't supported yet.
             if (withSliding) setNumpadKeyboard(true, mModeBeforeNumpad == MODE_CLIPBOARD, true);
+        }
+        default -> {
+            mManualModifierStates.values().forEach(ModifierState::unsetPrefixed);
+            publishAllModifierStatesToSwitchActions();
         }}
     }
 
@@ -617,13 +744,13 @@ public final class KeyboardState {
             return;
         }
         if (mMode == MODE_ALPHABET) {
-            mIsInDoubleTapShiftKey = mSwitchActions.isInDoubleTapShiftKeyTimeout();
-            if (!mIsInDoubleTapShiftKey) {
+            mShiftDoubleTapProgress.mIsInDoubleTap = mSwitchActions.isInDoubleTapModifierKeyTimeout(Modifier.SHIFT);
+            if (!mShiftDoubleTapProgress.mIsInDoubleTap) {
                 // This is first tap.
-                mSwitchActions.startDoubleTapShiftKeyTimer();
+                mSwitchActions.startDoubleTapModifierKeyTimer(Modifier.SHIFT);
             }
-            if (mIsInDoubleTapShiftKey) {
-                if (mAlphabetShiftState.isManualShifted() || mIsInAlphabetUnshiftedFromShifted) {
+            if (mShiftDoubleTapProgress.mIsInDoubleTap) {
+                if (mAlphabetShiftState.isManualShifted() || mShiftDoubleTapProgress.mIsDisabledFromEnabled) {
                     // Shift key has been double tapped while in manual shifted or automatic
                     // shifted state.
                     setShiftLocked(true);
@@ -661,6 +788,50 @@ public final class KeyboardState {
         }
     }
 
+    private void onPressModifier(final Modifier modifier) {
+        if (modifier == Modifier.SHIFT) {
+            onPressShift();
+            return;
+        }
+        final ModifierKeyState keyState = mModifierKeyStates.get(modifier);
+        final ModifierState modifierState = mManualModifierStates.get(modifier);
+        final ModifierDoubleTapProgress doubleTapProgress = mModifierDoubleTapProgresses.get(modifier);
+        if (keyState == null || modifierState == null || doubleTapProgress == null) {
+            return;
+        }
+        doubleTapProgress.mIsInDoubleTap = mSwitchActions.isInDoubleTapModifierKeyTimeout(modifier);
+        if (!doubleTapProgress.mIsInDoubleTap && !modifierState.isPrefixed()) {
+            // This is first tap.
+            mSwitchActions.startDoubleTapModifierKeyTimer(modifier);
+        }
+        if (doubleTapProgress.mIsInDoubleTap) {
+            if (modifierState.isEnabled() || doubleTapProgress.mIsDisabledFromEnabled) {
+                // Modifier key has been double tapped while in manual enabled state.
+                setModifierLocked(modifier, true);
+            } else {
+                // Modifier key has been double tapped while in normal state. This is the second
+                // tap to disable modifier locked state, so just ignore this.
+            }
+        } else {
+            if (modifierState.isLocked()) {
+                // Modifier key is pressed while modifier locked state, we will treat this state as
+                // modifier lock toggled state and mark as if modifier key pressed while normal
+                // state.
+                modifierState.setFlags(ModifierState.FLAG_TOGGLED | ModifierState.FLAG_LOCKED);
+                keyState.onPress();
+            } else if (modifierState.isPrefixed()) {
+                // Cancel prefix state
+                modifierState.setFlags(0);
+                keyState.onPress();
+            } else {
+                // In base layout, chording or manual shifted mode is started.
+                modifierState.setFlags(ModifierState.FLAG_TOGGLED);
+                keyState.onPress();
+            }
+        }
+        publishModifierStateToSwitchActions(modifier);
+    }
+
     private void onReleaseShift(final boolean withSliding, final int autoCapsFlags,
             final int recapitalizeMode) {
         if (RecapitalizeStatus.NOT_A_RECAPITALIZE_MODE != mRecapitalizeMode) {
@@ -669,11 +840,11 @@ public final class KeyboardState {
             updateShiftStateForRecapitalize(mRecapitalizeMode);
         } else if (mMode == MODE_ALPHABET) {
             final boolean isShiftLocked = mAlphabetShiftState.isShiftLocked();
-            mIsInAlphabetUnshiftedFromShifted = false;
-            if (mIsInDoubleTapShiftKey) {
+            mShiftDoubleTapProgress.mIsDisabledFromEnabled = false;
+            if (mShiftDoubleTapProgress.mIsInDoubleTap) {
                 // Double tap shift key has been handled in {@link #onPressShift}, so that just
                 // ignore this release shift key here.
-                mIsInDoubleTapShiftKey = false;
+                mShiftDoubleTapProgress.mIsInDoubleTap = false;
             } else if (mShiftKeyState.isChording()) {
                 if (mAlphabetShiftState.isShiftLockShifted()) {
                     // After chording input while shift locked state.
@@ -704,13 +875,13 @@ public final class KeyboardState {
                     && mShiftKeyState.isPressingOnShifted() && !withSliding) {
                 // Shift has been pressed without chording while shifted state.
                 setShifted(UNSHIFT);
-                mIsInAlphabetUnshiftedFromShifted = true;
+                mShiftDoubleTapProgress.mIsDisabledFromEnabled = true;
             } else if (mAlphabetShiftState.isManualShiftedFromAutomaticShifted()
                     && mShiftKeyState.isPressing() && !withSliding) {
                 // Shift has been pressed without chording while manual shifted transited from
                 // automatic shifted
                 setShifted(UNSHIFT);
-                mIsInAlphabetUnshiftedFromShifted = true;
+                mShiftDoubleTapProgress.mIsDisabledFromEnabled = true;
             }
         } else {
             // In symbol mode, switch back to the previous keyboard mode if the user chords the
@@ -720,6 +891,52 @@ public final class KeyboardState {
             }
         }
         mShiftKeyState.onRelease();
+    }
+
+    private void onReleaseModifier(final Modifier modifier, final boolean withSliding,
+            final int autoCapsFlags, final int recapitalizeMode) {
+        if (modifier == Modifier.SHIFT) {
+            onReleaseShift(withSliding, autoCapsFlags, recapitalizeMode);
+            return;
+        }
+        final ModifierKeyState keyState = mModifierKeyStates.get(modifier);
+        final ModifierState modifierState = mManualModifierStates.get(modifier);
+        final ModifierDoubleTapProgress doubleTapProgress = mModifierDoubleTapProgresses.get(modifier);
+        if (keyState == null || modifierState == null || doubleTapProgress == null) {
+            return;
+        }
+        final boolean isLocked = modifierState.isLocked();
+        doubleTapProgress.mIsDisabledFromEnabled = false;
+        if (doubleTapProgress.mIsInDoubleTap) {
+            // Double tap modifier key has been handled in {@link #onPressModifier}, so that just
+            // ignore this release modifier key here.
+            doubleTapProgress.mIsInDoubleTap = false;
+        } else if (modifierState.isDisabled()) {
+            // Prefix state had been canceled, do nothing
+        } else if (keyState.isChording()) {
+            if (modifierState.isLockToggled()) {
+                // After chording input while modifier locked state.
+                setModifierLocked(modifier, true);
+            } else {
+                // After chording input while normal state.
+                modifierState.setFlags(0);
+            }
+        } else if (modifierState.isLockToggled() && withSliding) {
+            // In modifier locked state, modifier has been pressed and slid out to other key.
+            setModifierLocked(modifier, true);
+        } else if (modifierState.isLockToggled()
+                && keyState.isPressing()
+                && !withSliding) {
+            // Modifier lock has been cancelled, switch to disabled
+            modifierState.setFlags(0);
+        } else if (modifierState.isEnabled()
+                && keyState.isPressing() && !withSliding) {
+            // Modifier has been pressed without chording
+            modifierState.setPrefixed(true);
+            doubleTapProgress.mIsDisabledFromEnabled = true;
+        }
+        keyState.onRelease();
+        publishModifierStateToSwitchActions(modifier);
     }
 
     public void onFinishSlidingInput(final int autoCapsFlags, final int recapitalizeMode) {

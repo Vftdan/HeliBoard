@@ -189,6 +189,8 @@ public class Key implements Comparable<Key> {
     private boolean mPressed;
     /** Key is enabled and responds on press */
     private boolean mEnabled = true;
+    /** For modifier keys: whether the corresponding modifier is locked */
+    private boolean mLocked;
 
     /**
      * Constructor for a key on <code>PopupKeyKeyboard</code> and on <code>MoreSuggestions</code>.
@@ -256,6 +258,7 @@ public class Key implements Comparable<Key> {
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
+        mLocked = key.mLocked;
     }
 
     /** constructor for creating emoji recent keys when there is no keyboard to take keys from */
@@ -285,6 +288,7 @@ public class Key implements Comparable<Key> {
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
+        mLocked = key.mLocked;
     }
 
     /** constructor from KeyParams */
@@ -350,6 +354,7 @@ public class Key implements Comparable<Key> {
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
+        mLocked = key.mLocked;
     }
 
     @NonNull
@@ -520,6 +525,13 @@ public class Key implements Comparable<Key> {
         return switch (mCode) {
             case KeyCode.SHIFT, KeyCode.SYMBOL_ALPHA, KeyCode.ALPHA, KeyCode.SYMBOL, KeyCode.NUMPAD, KeyCode.CTRL,
                     KeyCode.ALT, KeyCode.FN, KeyCode.META -> true;
+            default -> false;
+        };
+    }
+
+    public final boolean isNonLayoutModifier() {
+        return switch (mCode) {
+            case KeyCode.SHIFT, KeyCode.CTRL, KeyCode.ALT, KeyCode.FN, KeyCode.META -> true;
             default -> false;
         };
     }
@@ -831,6 +843,28 @@ public class Key implements Comparable<Key> {
      */
     public void onReleased() {
         mPressed = false;
+    }
+
+    public final boolean isLocked() {
+        return mLocked;
+    }
+
+    /**
+     * Informs the key that the modifier controlled by this key has been locked,
+     * in case it needs to change its appearance or state.
+     * @see #onUnlocked()
+     */
+    public void onLocked() {
+        mLocked = true;
+    }
+
+    /**
+     * Informs the key that the modifier controlled by this key has been unlocked,
+     * in case it needs to change its appearance or state.
+     * @see #onLocked()
+     */
+    public void onUnlocked() {
+        mLocked = false;
     }
 
     public final boolean isEnabled() {

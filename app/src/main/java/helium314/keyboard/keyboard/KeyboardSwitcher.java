@@ -31,6 +31,7 @@ import helium314.keyboard.keyboard.KeyboardLayoutSet.KeyboardLayoutSetException;
 import helium314.keyboard.keyboard.clipboard.ClipboardHistoryView;
 import helium314.keyboard.keyboard.emoji.EmojiPalettesView;
 import helium314.keyboard.keyboard.internal.KeyboardState;
+import helium314.keyboard.keyboard.internal.Modifier;
 import helium314.keyboard.latin.InputView;
 import helium314.keyboard.latin.KeyboardWrapperView;
 import helium314.keyboard.latin.LatinIME;
@@ -47,6 +48,8 @@ import helium314.keyboard.latin.utils.Log;
 import helium314.keyboard.latin.utils.RecapitalizeStatus;
 import helium314.keyboard.latin.utils.ResourceUtils;
 import helium314.keyboard.latin.utils.ScriptUtils;
+
+import java.util.List;
 
 public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
     private static final String TAG = KeyboardSwitcher.class.getSimpleName();
@@ -448,26 +451,45 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
 
     // Implements {@link KeyboardState.SwitchActions}.
     @Override
-    public void startDoubleTapShiftKeyTimer() {
+    public void startDoubleTapModifierKeyTimer(Modifier modifier) {
         if (DEBUG_TIMER_ACTION) {
-            Log.d(TAG, "startDoubleTapShiftKeyTimer");
+            Log.d(TAG, "startDoubleTapModifierKeyTimer(" + modifier.name + ")");
         }
         final MainKeyboardView keyboardView = getMainKeyboardView();
         if (keyboardView != null) {
-            keyboardView.startDoubleTapShiftKeyTimer();
+            keyboardView.startDoubleTapModifierKeyTimer(modifier);
         }
     }
 
     // Implements {@link KeyboardState.SwitchActions}.
     @Override
-    public void cancelDoubleTapShiftKeyTimer() {
+    public void cancelDoubleTapModifierKeyTimer(Modifier modifier) {
         if (DEBUG_TIMER_ACTION) {
-            Log.d(TAG, "setAlphabetKeyboard");
+            Log.d(TAG, "cancelDoubleTapModifierKeyTimer(" + modifier.name + ")");
         }
         final MainKeyboardView keyboardView = getMainKeyboardView();
         if (keyboardView != null) {
-            keyboardView.cancelDoubleTapShiftKeyTimer();
+            keyboardView.cancelDoubleTapModifierKeyTimer(modifier);
         }
+    }
+
+    // Implements {@link KeyboardState.SwitchActions}.
+    @Override
+    public void updatePreservedModifierState(Modifier modifier, boolean enabled) {
+        final MainKeyboardView keyboardView = mKeyboardView;
+        final Keyboard keyboard = keyboardView.getKeyboard();
+        List<Key> currentModifierKeys = keyboard.mModifierKeys.get(modifier);
+        if (currentModifierKeys != null) {
+            for (Key key : currentModifierKeys) {
+                if (enabled) {
+                    key.onLocked();
+                } else {
+                    key.onUnlocked();
+                }
+                keyboardView.invalidateKey(key);
+            }
+        }
+        mLatinIME.mKeyboardActionListener.updateMetaState(modifier, enabled);
     }
 
     // Implements {@link KeyboardState.SwitchActions}.
@@ -544,12 +566,12 @@ public final class KeyboardSwitcher implements KeyboardState.SwitchActions {
 
     // Implements {@link KeyboardState.SwitchActions}.
     @Override
-    public boolean isInDoubleTapShiftKeyTimeout() {
+    public boolean isInDoubleTapModifierKeyTimeout(Modifier modifier) {
         if (DEBUG_TIMER_ACTION) {
-            Log.d(TAG, "isInDoubleTapShiftKeyTimeout");
+            Log.d(TAG, "isInDoubleTapModifierKeyTimeout(" + modifier.name + ")");
         }
         final MainKeyboardView keyboardView = getMainKeyboardView();
-        return keyboardView != null && keyboardView.isInDoubleTapShiftKeyTimeout();
+        return keyboardView != null && keyboardView.isInDoubleTapModifierKeyTimeout(modifier);
     }
 
     /**

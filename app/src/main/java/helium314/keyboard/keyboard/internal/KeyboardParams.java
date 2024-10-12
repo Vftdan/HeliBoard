@@ -16,6 +16,7 @@ import androidx.annotation.Nullable;
 
 import helium314.keyboard.keyboard.Key;
 import helium314.keyboard.keyboard.KeyboardId;
+import helium314.keyboard.keyboard.internal.Modifier;
 import helium314.keyboard.keyboard.internal.keyboard_parser.LocaleKeyboardInfos;
 import helium314.keyboard.keyboard.internal.keyboard_parser.floris.KeyCode;
 import helium314.keyboard.latin.R;
@@ -24,8 +25,10 @@ import helium314.keyboard.latin.utils.ResourceUtils;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
@@ -76,7 +79,11 @@ public class KeyboardParams {
     @NonNull
     public final SortedSet<Key> mSortedKeys = new TreeSet<>(ROW_COLUMN_COMPARATOR);
     @NonNull
-    public final ArrayList<Key> mShiftKeys = new ArrayList<>();
+    public final Map<Modifier, ArrayList<Key>> mModifierKeys = new HashMap<>() {{
+        for (Modifier modifier: Modifier.list) {
+            put(modifier, new ArrayList<>());
+        }
+    }};
     @NonNull
     public final ArrayList<Key> mAltCodeKeysWhileTyping = new ArrayList<>();
     @NonNull
@@ -120,7 +127,7 @@ public class KeyboardParams {
 
     protected void clearKeys() {
         mSortedKeys.clear();
-        mShiftKeys.clear();
+        mModifierKeys.values().forEach(ArrayList::clear);
         clearHistogram();
     }
 
@@ -136,8 +143,9 @@ public class KeyboardParams {
             return;
         }
         updateHistogram(key);
-        if (key.getCode() == KeyCode.SHIFT) {
-            mShiftKeys.add(key);
+        ArrayList<Key> currentModifierKeys = mModifierKeys.get(Modifier.byKeyCode.get(key.getCode()));
+        if (currentModifierKeys != null) {
+            currentModifierKeys.add(key);
         }
         if (key.altCodeWhileTyping()) {
             mAltCodeKeysWhileTyping.add(key);

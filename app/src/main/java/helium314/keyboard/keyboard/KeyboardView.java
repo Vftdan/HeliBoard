@@ -422,8 +422,8 @@ public class KeyboardView extends View {
                     paint.setColor(key.selectTextColor(params) | 0xFF000000); // ignore alpha for emojis (though actually color isn't applied anyway and we could just set white)
                 else if (key.hasActionKeyBackground())
                     paint.setColor(mColors.get(ColorType.ACTION_KEY_ICON));
-                else if (key.isLocked())
-                    paint.setColor(mColors.get(ColorType.LOCKED_KEY_TEXT));
+                else if (key.isModifierActive())
+                    paint.setColor(mColors.get(ColorType.MODIFIER_ACTIVE_KEY_TEXT));
                 else
                     paint.setColor(key.selectTextColor(params));
                 // Set a drop shadow for the text if the shadow radius is positive value.

@@ -190,7 +190,7 @@ public class Key implements Comparable<Key> {
     /** Key is enabled and responds on press */
     private boolean mEnabled = true;
     /** For modifier keys: whether the corresponding modifier is locked */
-    private boolean mLocked;
+    private boolean mModifierActive;
 
     /**
      * Constructor for a key on <code>PopupKeyKeyboard</code> and on <code>MoreSuggestions</code>.
@@ -258,7 +258,7 @@ public class Key implements Comparable<Key> {
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
-        mLocked = key.mLocked;
+        mModifierActive = key.mModifierActive;
     }
 
     /** constructor for creating emoji recent keys when there is no keyboard to take keys from */
@@ -288,7 +288,7 @@ public class Key implements Comparable<Key> {
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
-        mLocked = key.mLocked;
+        mModifierActive = key.mModifierActive;
     }
 
     /** constructor from KeyParams */
@@ -354,7 +354,7 @@ public class Key implements Comparable<Key> {
         // Key state.
         mPressed = key.mPressed;
         mEnabled = key.mEnabled;
-        mLocked = key.mLocked;
+        mModifierActive = key.mModifierActive;
     }
 
     @NonNull
@@ -845,8 +845,8 @@ public class Key implements Comparable<Key> {
         mPressed = false;
     }
 
-    public final boolean isLocked() {
-        return mLocked;
+    public final boolean isModifierActive() {
+        return mModifierActive;
     }
 
     /**
@@ -855,7 +855,7 @@ public class Key implements Comparable<Key> {
      * @see #onUnlocked()
      */
     public void onLocked() {
-        mLocked = true;
+        mModifierActive = true;
     }
 
     /**
@@ -864,7 +864,7 @@ public class Key implements Comparable<Key> {
      * @see #onLocked()
      */
     public void onUnlocked() {
-        mLocked = false;
+        mModifierActive = false;
     }
 
     public final boolean isEnabled() {
